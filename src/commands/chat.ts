@@ -1,4 +1,4 @@
-// src/commands/chat.ts
+import OpenAI from "openai";
 import { program } from 'commander';
 import inquirer, { type DistinctQuestion } from 'inquirer';
 import chalk from 'chalk';
@@ -6,9 +6,6 @@ import ora from 'ora';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-
-// Import any AI client libraries you're using
-// For example: import { OpenAIClient } from '../utils/ai-client';
 
 // Define a history interface for chat messages
 interface ChatMessage {
@@ -73,7 +70,7 @@ program
     console.log(chalk.gray(`Using model: ${modelName}`));
 
     // Initialize AI client
-    // const ai = new OpenAIClient(config.apiKey);
+    const ai = new OpenAI({ apiKey: config.apiKey });
 
     // Add system message to provide context
     const systemMessage = {
@@ -118,24 +115,29 @@ program
       const spinner = ora('Perkins is thinking...').start();
 
       try {
-        // Here you would make the actual API call to your AI service
-        // For example: const response = await ai.createChatCompletion(modelName, [systemMessage, ...history]);
+        const response = await ai.responses.create({
+          model: modelName,
+          input: [
+            { role: "user", content: userInput },
+          ],
+          // stream: true,
+        });
 
-        // Mock response for now
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const mockResponse = `I understand you're asking about "${userInput}". As a coding assistant, I would provide helpful code suggestions here.`;
+        // for await (const event of stream) {
+        //   console.log(event);
+        // }
 
         spinner.stop();
 
         // Add assistant response to history
         history.push({
           role: 'assistant',
-          content: mockResponse
+          content: response.output_text
         });
 
         // Display response
         console.log(chalk.green('Perkins:'));
-        console.log(mockResponse);
+        console.log(response.output_text);
         console.log(); // Empty line for readability
 
         // Save history after each interaction if session is specified
