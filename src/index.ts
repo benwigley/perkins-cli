@@ -8,7 +8,7 @@ dotenv.config();
 // Import command modules
 import './commands/init';
 import './commands/chat';
-import './commands/model';
+import './commands/models';
 
 // Set up the CLI program
 program

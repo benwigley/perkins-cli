@@ -5,7 +5,7 @@ import ora from 'ora';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { PerkinsConfig, ChatMessage, AIProvider } from "../types/perkins";
+import { PerkinsConfig, ChatMessage, AIProvider } from "../types";
 import { createAIProvider } from "../services/ai-service";
 
 

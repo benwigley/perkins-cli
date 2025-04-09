@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import Anthropic from '@anthropic-ai/sdk';
-import { AIProvider, ChatMessage, PerkinsConfig } from "../types/perkins";
+import { AIProvider, ChatMessage, PerkinsConfig } from "../types";
 
 
 // OpenAI implementation

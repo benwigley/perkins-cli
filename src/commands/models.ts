@@ -4,7 +4,8 @@ import chalk from 'chalk';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { PerkinsConfig } from "../types/perkins";
+import { PerkinsConfig } from "../types";
+import { AVAILABLE_MODELS } from "../constants/models";
 
 program
   .command('models')
@@ -23,12 +24,6 @@ program
     }
 
     const config: PerkinsConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-
-    // Define available models by provider (for adding new models)
-    const AVAILABLE_MODELS = {
-      openai: ['gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo', 'gpt-4-vision'],
-      anthropic: ['claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku', 'claude-3-5-sonnet']
-    };
 
     // Get all configured models
     const configuredModels = Object.entries(config.providers)

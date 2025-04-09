@@ -4,6 +4,7 @@ import chalk from 'chalk';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { AVAILABLE_MODELS } from "../constants/models";
 
 // Define provider-specific configuration
 interface ProviderConfig {
@@ -20,12 +21,6 @@ interface PerkinsConfig {
   defaultModel: string;
   timestamp: string;
 }
-
-// Define available models by provider
-const AVAILABLE_MODELS = {
-  openai: ['gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo'],
-  anthropic: ['claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku']
-};
 
 program
   .command('init')
