@@ -1,4 +1,3 @@
-import OpenAI from "openai";
 import { program } from 'commander';
 import inquirer, { type DistinctQuestion } from 'inquirer';
 import chalk from 'chalk';
@@ -6,12 +5,9 @@ import ora from 'ora';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { PerkinsConfig, ChatMessage, AIProvider } from "../types/perkins";
+import { createAIProvider } from "../services/ai-service";
 
-// Define a history interface for chat messages
-interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
-}
 
 program
   .command('chat')
@@ -31,7 +27,7 @@ program
       return;
     }
 
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    const config: PerkinsConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
 
     // Set up session and history
     const sessionsDir = path.join(configDir, 'sessions');
@@ -54,6 +50,7 @@ program
         if (lastMessages.length > 0) {
           console.log(chalk.gray('\n=== Previous messages ==='));
           lastMessages.forEach(msg => {
+            if (msg.role === 'system') return;
             const prefix = msg.role === 'user' ? chalk.blue('You: ') : chalk.green('Perkins: ');
             console.log(`${prefix}${msg.content.substring(0, 100)}${msg.content.length > 100 ? '...' : ''}`);
           });
@@ -65,18 +62,48 @@ program
       }
     }
 
-    // Use specified model or default from config
-    const modelName = options.model || config.modelName;
+    // If no model specified, let user choose from available models
+    let modelName = options.model || config.defaultModel;
+
+    if (!options.model) {
+      // Gather all available models from config
+      const allModels = Object.entries(config.providers)
+        .flatMap(([provider, providerConfig]) => providerConfig?.models || []);
+
+      if (allModels.length > 1) {
+        const { selectedModel } = await inquirer.prompt([
+          {
+            type: 'list',
+            name: 'selectedModel',
+            message: 'Select AI model to use:',
+            choices: allModels,
+            default: config.defaultModel
+          }
+        ]);
+
+        modelName = selectedModel;
+      }
+    }
+
     console.log(chalk.gray(`Using model: ${modelName}`));
 
-    // Initialize AI client
-    const ai = new OpenAI({ apiKey: config.apiKey });
+    // Create AI provider based on selected model
+    let aiProvider: AIProvider;
+    try {
+      aiProvider = createAIProvider(modelName, config);
+      console.log(chalk.gray(`Provider: ${aiProvider.name}`));
+    } catch (error: any) {
+      console.log(chalk.red(error.message));
+      return;
+    }
 
-    // Add system message to provide context
-    const systemMessage = {
-      role: 'system',
-      content: 'You are Perkins, an AI coding assistant. Help the user with programming tasks, explain code, suggest improvements, and solve coding problems.'
-    };
+    // Add system message to provide context if not present
+    if (!history.some(msg => msg.role === 'system')) {
+      history.unshift({
+        role: 'system',
+        content: 'You are Perkins, an AI coding assistant. Help the user with programming tasks, explain code, suggest improvements, and solve coding problems.'
+      });
+    }
 
     // Chat loop
     const questions: DistinctQuestion[] = [
@@ -84,9 +111,9 @@ program
         type: 'input',
         name: 'userInput',
         message: chalk.blue('You:'),
-        // prefix: '',
       }
     ];
+
     let chatActive = true;
     while (chatActive) {
       const { userInput } = await inquirer.prompt(questions);
@@ -105,6 +132,30 @@ program
         break;
       }
 
+      // Check for model switching command
+      if (userInput.toLowerCase().startsWith('/model ')) {
+        const requestedModel = userInput.substring(7).trim();
+
+        // Find all available models
+        const allModels = Object.entries(config.providers)
+          .flatMap(([provider, providerConfig]) => providerConfig?.models || []);
+
+        if (allModels.includes(requestedModel)) {
+          try {
+            aiProvider = createAIProvider(requestedModel, config);
+            modelName = requestedModel;
+            console.log(chalk.green(`Switched to model: ${modelName} (${aiProvider.name})`));
+          } catch (error: any) {
+            console.log(chalk.red(error.message));
+          }
+          continue;
+        } else {
+          console.log(chalk.yellow(`Model "${requestedModel}" not available. Available models:`));
+          allModels.forEach(model => console.log(chalk.gray(`- ${model}`)));
+          continue;
+        }
+      }
+
       // Add user message to history
       history.push({
         role: 'user',
@@ -115,29 +166,18 @@ program
       const spinner = ora('Perkins is thinking...').start();
 
       try {
-        const response = await ai.responses.create({
-          model: modelName,
-          input: [
-            { role: "user", content: userInput },
-          ],
-          // stream: true,
-        });
-
-        // for await (const event of stream) {
-        //   console.log(event);
-        // }
-
+        const response = await aiProvider.generateResponse(history);
         spinner.stop();
 
         // Add assistant response to history
         history.push({
           role: 'assistant',
-          content: response.output_text
+          content: response
         });
 
         // Display response
         console.log(chalk.green('Perkins:'));
-        console.log(response.output_text);
+        console.log(response);
         console.log(); // Empty line for readability
 
         // Save history after each interaction if session is specified
