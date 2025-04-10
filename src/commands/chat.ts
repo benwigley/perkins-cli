@@ -15,7 +15,7 @@ program
   .option('-m, --model <model>', 'Specify which AI model to use')
   .option('-s, --session <name>', 'Continue a named session')
   .action(async (options) => {
-    console.log(chalk.blue('Starting chat with Perkins AI coding assistant...'));
+    console.log(chalk.blueBright('Starting chat with Perkins AI coding assistant...'));
     console.log(chalk.gray('Type "exit" or press Ctrl+C to end the session\n'));
 
     // Load config
@@ -126,7 +126,7 @@ program
       // Check for exit command
       if (userInput.toLowerCase() === 'exit') {
         chatActive = false;
-        console.log(chalk.blue('\nEnding chat session. Goodbye!'));
+        console.log(chalk.blueBright('\nEnding chat session. Goodbye!'));
 
         // Save session if specified
         if (options.session) {

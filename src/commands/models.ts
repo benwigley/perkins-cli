@@ -181,13 +181,13 @@ program
 
     } else {
       // Just list all models
-      console.log(chalk.blue('Configured models:'));
+      console.log(chalk.blueBright('Configured models:'));
       if (configuredModels.length === 0) {
         console.log(chalk.yellow('No models configured.'));
       } else {
         Object.entries(config.providers).forEach(([provider, providerConfig]) => {
           if (providerConfig && providerConfig.models.length > 0) {
-            console.log(chalk.blue(`\n${provider.toUpperCase()}:`));
+            console.log(chalk.blueBright(`\n${provider.toUpperCase()}:`));
             providerConfig.models.forEach(model => {
               const modelInfo = AVAILABLE_MODELS[provider as keyof typeof AVAILABLE_MODELS].find(m => m.modelName === model);
               const modelName = modelInfo ? modelInfo.name : model;

@@ -26,7 +26,7 @@ program
   .command('init')
   .description('Initialize Perkins in your project')
   .action(async () => {
-    console.log(chalk.blue('Initializing Perkins AI coding assistant...'));
+    console.log(chalk.blueBright('Initializing Perkins AI coding assistant...'));
 
     // Create config directory if it doesn't exist
     const configDir = path.join(os.homedir(), '.perkins');
@@ -123,7 +123,7 @@ program
 
     console.log(chalk.green('\n✓ Perkins initialized successfully!'));
     console.log(chalk.gray(`Configuration saved to ${configPath}`));
-    console.log(chalk.blue(`Default model set to: ${allModels.find(m => m.modelName === defaultModel)?.name || defaultModel}`));
+    console.log(chalk.blueBright(`Default model set to: ${allModels.find(m => m.modelName === defaultModel)?.name || defaultModel}`));
     console.log(chalk.yellow('\nTip: Use `perkins models -a` to add additional models after initialization.'));
   });
 
