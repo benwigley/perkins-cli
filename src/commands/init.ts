@@ -89,7 +89,7 @@ program
 
       config.providers[provider as keyof typeof config.providers] = {
         apiKey,
-        models: [] // Start with empty models array
+        models: AVAILABLE_MODELS[provider as keyof typeof AVAILABLE_MODELS].map(m => m.modelName)
       };
     }
 
@@ -104,6 +104,9 @@ program
         ...model
       }))
     ];
+
+    console.log('allModels', allModels);
+
 
     const { defaultModel } = await inquirer.prompt({
       type: 'list',
