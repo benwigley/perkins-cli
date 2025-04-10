@@ -118,6 +118,11 @@ program
     while (chatActive) {
       const { userInput } = await inquirer.prompt(questions);
 
+      // Skip empty inputs
+      if (!userInput.trim()) {
+        continue;
+      }
+
       // Check for exit command
       if (userInput.toLowerCase() === 'exit') {
         chatActive = false;
