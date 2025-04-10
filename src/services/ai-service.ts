@@ -1,72 +1,69 @@
-import OpenAI from "openai";
-import Anthropic from '@anthropic-ai/sdk';
+import { ChatOpenAI } from "@langchain/openai";
+import { ChatAnthropic } from "@langchain/anthropic";
+import { HumanMessage, SystemMessage, AIMessage } from "@langchain/core/messages";
 import { AIProvider, ChatMessage, PerkinsConfig } from "../types";
-import chalk from "chalk";
 
-
-// OpenAI implementation
+// OpenAI implementation using Langchain
 class OpenAIProvider implements AIProvider {
   name = "OpenAI";
-  private client: OpenAI;
-  private model: string;
+  private model: ChatOpenAI;
 
-  constructor(apiKey: string, model: string) {
-    this.client = new OpenAI({ apiKey });
-    this.model = model;
+  constructor(apiKey: string, modelName: string) {
+    this.model = new ChatOpenAI({
+      openAIApiKey: apiKey,
+      modelName: modelName,
+      temperature: 0.7,
+    });
   }
 
   async generateResponse(messages: ChatMessage[]): Promise<string> {
-    const response = await this.client.chat.completions.create({
-      model: this.model,
-      messages: messages,
+    const langchainMessages = messages.map(msg => {
+      switch (msg.role) {
+        case 'system':
+          return new SystemMessage(msg.content);
+        case 'user':
+          return new HumanMessage(msg.content);
+        case 'assistant':
+          return new AIMessage(msg.content);
+        default:
+          throw new Error(`Unknown message role: ${msg.role}`);
+      }
     });
 
-    console.log(chalk.gray(`\n\nInput tokens: ${response.usage?.prompt_tokens}`));
-    console.log(chalk.gray(`Output tokens: ${response.usage?.completion_tokens}\n`));
-
-    return response.choices[0].message.content || '';
+    const response = await this.model.invoke(langchainMessages);
+    return response.content.toString();
   }
 }
 
-// Anthropic implementation
+// Anthropic implementation using Langchain
 class AnthropicProvider implements AIProvider {
   name = "Anthropic";
-  private client: Anthropic;
-  private model: string;
+  private model: ChatAnthropic;
 
-  constructor(apiKey: string, model: string) {
-    this.client = new Anthropic({ apiKey });
-    this.model = model;
+  constructor(apiKey: string, modelName: string) {
+    this.model = new ChatAnthropic({
+      anthropicApiKey: apiKey,
+      modelName: modelName,
+      temperature: 0.7,
+    });
   }
 
   async generateResponse(messages: ChatMessage[]): Promise<string> {
-    // Extract system message if present
-    const systemMessage = messages.find(msg => msg.role === 'system')?.content;
-
-    // Filter out the system message for the regular messages array
-    const chatMessages = messages
-      .filter(msg => msg.role !== 'system')
-      .map(msg => ({
-        role: msg.role as 'assistant' | 'user', // Type assertion
-        content: msg.content
-      }));
-
-    const msg: Anthropic.Message = await this.client.messages.create({
-      model: this.model,
-      messages: chatMessages,
-      system: systemMessage, // Use the system parameter
-      max_tokens: 4000,
+    const langchainMessages = messages.map(msg => {
+      switch (msg.role) {
+        case 'system':
+          return new SystemMessage(msg.content);
+        case 'user':
+          return new HumanMessage(msg.content);
+        case 'assistant':
+          return new AIMessage(msg.content);
+        default:
+          throw new Error(`Unknown message role: ${msg.role}`);
+      }
     });
 
-    console.log(chalk.gray(`\n\nInput tokens: ${msg.usage.input_tokens}`));
-    console.log(chalk.gray(`Output tokens: ${msg.usage.output_tokens}\n`));
-
-    // Handle different content block types
-    const firstBlock = msg.content[0];
-    if (firstBlock.type === 'text') {
-      return firstBlock.text;
-    }
-    return '';
+    const response = await this.model.invoke(langchainMessages);
+    return response.content.toString();
   }
 }
 
