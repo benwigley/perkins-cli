@@ -87,47 +87,33 @@ program
         validate: (input) => input.length > 0 ? true : 'API key is required'
       });
 
-      // Let user select which models to enable
-      const { selectedModels } = await inquirer.prompt({
-        type: 'checkbox',
-        name: 'selectedModels',
-        message: `Select which ${provider.toUpperCase()} models you want to use:`,
-        choices: AVAILABLE_MODELS[provider as keyof typeof AVAILABLE_MODELS].map(model => ({
-          name: model.name,
-          value: model.modelName
-        })),
-        default: AVAILABLE_MODELS[provider as keyof typeof AVAILABLE_MODELS].map(model => model.modelName),
-        validate: (input) => input.length > 0 ? true : 'Please select at least one model'
-      });
-
       config.providers[provider as keyof typeof config.providers] = {
         apiKey,
-        models: selectedModels
+        models: [] // Start with empty models array
       };
     }
 
-    // Set default model
-    const configuredModels = Object.entries(config.providers)
-      .flatMap(([provider, providerConfig]) =>
-        providerConfig?.models.map(model => ({
-          provider,
-          modelName: model,
-          name: AVAILABLE_MODELS[provider as keyof typeof AVAILABLE_MODELS].find(m => m.modelName === model)?.name || model,
-          isDefault: model === config.defaultModel
-        })) || []);
-
-    // Set default to the first available model
-    const defaultModelValue = configuredModels.length > 0 ? configuredModels[0]?.name : '';
+    // Set default model - show all available models from both providers
+    const allModels = [
+      ...AVAILABLE_MODELS.openai.map(model => ({
+        provider: 'openai',
+        ...model
+      })),
+      ...AVAILABLE_MODELS.anthropic.map(model => ({
+        provider: 'anthropic',
+        ...model
+      }))
+    ];
 
     const { defaultModel } = await inquirer.prompt({
       type: 'list',
       name: 'defaultModel',
       message: 'Select your default model:',
-      choices: configuredModels.map(m => ({
-        name: `${m.name}${m.isDefault ? ' (current default)' : ''} [${m.provider}]`,
+      choices: allModels.map(m => ({
+        name: `${m.name} [${m.provider}]`,
         value: m.modelName
       })),
-      default: defaultModelValue
+      default: existingConfig?.defaultModel || 'gpt-4'
     });
 
     config.defaultModel = defaultModel;
@@ -137,13 +123,8 @@ program
 
     console.log(chalk.green('\n✓ Perkins initialized successfully!'));
     console.log(chalk.gray(`Configuration saved to ${configPath}`));
-
-    // Find the human-readable name for the default model
-    const defaultModelInfo = Object.entries(AVAILABLE_MODELS)
-      .flatMap(([_, models]) => models)
-      .find(model => model.modelName === config.defaultModel);
-
-    console.log(chalk.blue(`Default model set to: ${defaultModelInfo?.name || config.defaultModel}`));
+    console.log(chalk.blue(`Default model set to: ${allModels.find(m => m.modelName === defaultModel)?.name || defaultModel}`));
+    console.log(chalk.yellow('\nTip: Use `perkins models -a` to add additional models after initialization.'));
   });
 
 export default program;
