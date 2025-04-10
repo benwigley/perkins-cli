@@ -4,7 +4,7 @@ import chalk from 'chalk';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { AVAILABLE_MODELS } from "../constants/models";
+import { AVAILABLE_MODELS, ModelInfo } from "../constants/models";
 
 // Define provider-specific configuration
 interface ProviderConfig {
@@ -42,14 +42,12 @@ program
       try {
         existingConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
 
-        const { reinitialize } = await inquirer.prompt([
-          {
-            type: 'confirm',
-            name: 'reinitialize',
-            message: 'Perkins is already initialized. Do you want to reinitialize?',
-            default: false
-          }
-        ]);
+        const { reinitialize } = await inquirer.prompt({
+          type: 'confirm',
+          name: 'reinitialize',
+          message: 'Perkins is already initialized. Do you want to reinitialize?',
+          default: false
+        });
 
         if (!reinitialize) {
           console.log(chalk.green('Initialization canceled.'));
@@ -61,18 +59,16 @@ program
     }
 
     // Ask which providers to configure
-    const { selectedProviders } = await inquirer.prompt([
-      {
-        type: 'checkbox',
-        name: 'selectedProviders',
-        message: 'Select AI providers to configure:',
-        choices: [
-          { name: 'OpenAI (GPT models)', value: 'openai' },
-          { name: 'Anthropic (Claude models)', value: 'anthropic' }
-        ],
-        validate: (input) => input.length > 0 ? true : 'Please select at least one provider'
-      }
-    ]);
+    const { selectedProviders } = await inquirer.prompt({
+      type: 'checkbox',
+      name: 'selectedProviders',
+      message: 'Select AI providers to configure:',
+      choices: [
+        { name: 'OpenAI (GPT models)', value: 'openai' },
+        { name: 'Anthropic (Claude models)', value: 'anthropic' }
+      ],
+      validate: (input) => input.length > 0 ? true : 'Please select at least one provider'
+    });
 
     const config: PerkinsConfig = {
       providers: {},
@@ -84,26 +80,25 @@ program
     for (const provider of selectedProviders) {
       console.log(chalk.blue(`\nConfiguring ${provider.toUpperCase()}...`));
 
-      const { apiKey } = await inquirer.prompt([
-        {
-          type: 'password',
-          name: 'apiKey',
-          message: `Enter your ${provider.toUpperCase()} API key:`,
-          validate: (input) => input.length > 0 ? true : 'API key is required'
-        }
-      ]);
+      const { apiKey } = await inquirer.prompt({
+        type: 'password',
+        name: 'apiKey',
+        message: `Enter your ${provider.toUpperCase()} API key:`,
+        validate: (input) => input.length > 0 ? true : 'API key is required'
+      });
 
       // Let user select which models to enable
-      const { selectedModels } = await inquirer.prompt([
-        {
-          type: 'checkbox',
-          name: 'selectedModels',
-          message: `Select which ${provider.toUpperCase()} models you want to use:`,
-          choices: AVAILABLE_MODELS[provider as keyof typeof AVAILABLE_MODELS],
-          default: AVAILABLE_MODELS[provider as keyof typeof AVAILABLE_MODELS],
-          validate: (input) => input.length > 0 ? true : 'Please select at least one model'
-        }
-      ]);
+      const { selectedModels } = await inquirer.prompt({
+        type: 'checkbox',
+        name: 'selectedModels',
+        message: `Select which ${provider.toUpperCase()} models you want to use:`,
+        choices: AVAILABLE_MODELS[provider as keyof typeof AVAILABLE_MODELS].map(model => ({
+          name: model.name,
+          value: model.modelName
+        })),
+        default: AVAILABLE_MODELS[provider as keyof typeof AVAILABLE_MODELS].map(model => model.modelName),
+        validate: (input) => input.length > 0 ? true : 'Please select at least one model'
+      });
 
       config.providers[provider as keyof typeof config.providers] = {
         apiKey,
@@ -112,19 +107,28 @@ program
     }
 
     // Set default model
-    const allModels = Object.values(config.providers).flatMap(provider => provider?.models || []);
+    const configuredModels = Object.entries(config.providers)
+      .flatMap(([provider, providerConfig]) =>
+        providerConfig?.models.map(model => ({
+          provider,
+          modelName: model,
+          name: AVAILABLE_MODELS[provider as keyof typeof AVAILABLE_MODELS].find(m => m.modelName === model)?.name || model,
+          isDefault: model === config.defaultModel
+        })) || []);
 
-    const { defaultModel } = await inquirer.prompt([
-      {
-        type: 'list',
-        name: 'defaultModel',
-        message: 'Select default model:',
-        choices: allModels,
-        default: allModels.includes(existingConfig?.defaultModel || '')
-          ? existingConfig?.defaultModel
-          : allModels[0]
-      }
-    ]);
+    // Set default to the first available model
+    const defaultModelValue = configuredModels.length > 0 ? configuredModels[0]?.name : '';
+
+    const { defaultModel } = await inquirer.prompt({
+      type: 'list',
+      name: 'defaultModel',
+      message: 'Select your default model:',
+      choices: configuredModels.map(m => ({
+        name: `${m.name}${m.isDefault ? ' (current default)' : ''} [${m.provider}]`,
+        value: m.modelName
+      })),
+      default: defaultModelValue
+    });
 
     config.defaultModel = defaultModel;
 
@@ -133,7 +137,13 @@ program
 
     console.log(chalk.green('\n✓ Perkins initialized successfully!'));
     console.log(chalk.gray(`Configuration saved to ${configPath}`));
-    console.log(chalk.blue(`Default model set to: ${config.defaultModel}`));
+
+    // Find the human-readable name for the default model
+    const defaultModelInfo = Object.entries(AVAILABLE_MODELS)
+      .flatMap(([_, models]) => models)
+      .find(model => model.modelName === config.defaultModel);
+
+    console.log(chalk.blue(`Default model set to: ${defaultModelInfo?.name || config.defaultModel}`));
   });
 
 export default program;

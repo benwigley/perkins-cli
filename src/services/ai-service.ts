@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import Anthropic from '@anthropic-ai/sdk';
 import { AIProvider, ChatMessage, PerkinsConfig } from "../types";
+import chalk from "chalk";
 
 
 // OpenAI implementation
@@ -19,6 +20,9 @@ class OpenAIProvider implements AIProvider {
       model: this.model,
       messages: messages,
     });
+
+    console.log(chalk.gray(`\n\nInput tokens: ${response.usage?.prompt_tokens}`));
+    console.log(chalk.gray(`Output tokens: ${response.usage?.completion_tokens}\n`));
 
     return response.choices[0].message.content || '';
   }
@@ -54,7 +58,15 @@ class AnthropicProvider implements AIProvider {
       max_tokens: 4000,
     });
 
-    return msg.content.toString() || '';
+    console.log(chalk.gray(`\n\nInput tokens: ${msg.usage.input_tokens}`));
+    console.log(chalk.gray(`Output tokens: ${msg.usage.output_tokens}\n`));
+
+    // Handle different content block types
+    const firstBlock = msg.content[0];
+    if (firstBlock.type === 'text') {
+      return firstBlock.text;
+    }
+    return '';
   }
 }
 

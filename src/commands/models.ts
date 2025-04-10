@@ -5,7 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { PerkinsConfig } from "../types";
-import { AVAILABLE_MODELS } from "../constants/models";
+import { AVAILABLE_MODELS, ModelInfo } from "../constants/models";
 
 program
   .command('models')
@@ -30,7 +30,8 @@ program
       .flatMap(([provider, providerConfig]) =>
         providerConfig?.models.map(model => ({
           provider,
-          model,
+          modelName: model,
+          name: AVAILABLE_MODELS[provider as keyof typeof AVAILABLE_MODELS].find(m => m.modelName === model)?.name || model,
           isDefault: model === config.defaultModel
         })) || []);
 
@@ -60,7 +61,7 @@ program
       // Get available models that aren't already configured
       const existingModels = config.providers[selectedProvider as keyof typeof config.providers]?.models || [];
       const availableModels = AVAILABLE_MODELS[selectedProvider as keyof typeof AVAILABLE_MODELS]
-        .filter(model => !existingModels.includes(model));
+        .filter(model => !existingModels.includes(model.modelName));
 
       if (availableModels.length === 0) {
         console.log(chalk.yellow('All known models for this provider are already configured.'));
@@ -89,7 +90,14 @@ program
           type: 'list',
           name: 'modelToAdd',
           message: 'Select model to add:',
-          choices: [...availableModels, new inquirer.Separator(), '-- Enter custom model --']
+          choices: [
+            ...availableModels.map(model => ({
+              name: model.name,
+              value: model.modelName
+            })),
+            new inquirer.Separator(),
+            { name: '-- Enter custom model --', value: 'custom' }
+          ]
         }
       ]);
 
@@ -125,7 +133,7 @@ program
           name: 'modelToDelete',
           message: 'Select model to delete:',
           choices: configuredModels.map(m => ({
-            name: `${m.model}${m.isDefault ? ' (default)' : ''} [${m.provider}]`,
+            name: `${m.name}${m.isDefault ? ' (default)' : ''} [${m.provider}]`,
             value: m
           }))
         }
@@ -140,11 +148,11 @@ program
       // Remove the model
       const provider = modelToDelete.provider;
       const providerModels = config.providers[provider as keyof typeof config.providers]?.models || [];
-      const updatedModels = providerModels.filter(m => m !== modelToDelete.model);
+      const updatedModels = providerModels.filter(m => m !== modelToDelete.modelName);
 
       config.providers[provider as keyof typeof config.providers]!.models = updatedModels;
       fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-      console.log(chalk.green(`Deleted model: ${modelToDelete.model}`));
+      console.log(chalk.green(`Deleted model: ${modelToDelete.name}`));
 
     } else if (options.setDefault) {
       // List all models and let user select a new default
@@ -159,8 +167,8 @@ program
           name: 'newDefault',
           message: 'Select new default model:',
           choices: configuredModels.map(m => ({
-            name: `${m.model}${m.isDefault ? ' (current default)' : ''} [${m.provider}]`,
-            value: m.model
+            name: `${m.name}${m.isDefault ? ' (current default)' : ''} [${m.provider}]`,
+            value: m.modelName
           })),
           default: config.defaultModel
         }
@@ -181,8 +189,10 @@ program
           if (providerConfig && providerConfig.models.length > 0) {
             console.log(chalk.blue(`\n${provider.toUpperCase()}:`));
             providerConfig.models.forEach(model => {
+              const modelInfo = AVAILABLE_MODELS[provider as keyof typeof AVAILABLE_MODELS].find(m => m.modelName === model);
+              const modelName = modelInfo ? modelInfo.name : model;
               const isDefault = model === config.defaultModel;
-              console.log(`  ${chalk.green('•')} ${model}${isDefault ? chalk.yellow(' (default)') : ''}`);
+              console.log(`  ${chalk.green('•')} ${modelName}${isDefault ? chalk.yellow(' (default)') : ''}`);
             });
           }
         });
